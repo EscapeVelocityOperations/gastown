@@ -75,11 +75,14 @@ type CreateOptions struct {
 
 // UpdateOptions specifies options for updating an issue.
 type UpdateOptions struct {
-	Title       *string
-	Status      *string
-	Priority    *int
-	Description *string
-	Assignee    *string
+	Title        *string
+	Status       *string
+	Priority     *int
+	Description  *string
+	Assignee     *string
+	AddLabels    []string // Labels to add
+	RemoveLabels []string // Labels to remove
+	SetLabels    []string // Labels to set (replaces all existing)
 }
 
 // SyncStatus represents the sync status of the beads repository.
@@ -276,6 +279,19 @@ func (b *Beads) Update(id string, opts UpdateOptions) error {
 	}
 	if opts.Assignee != nil {
 		args = append(args, "--assignee="+*opts.Assignee)
+	}
+	// Label operations: set-labels replaces all, otherwise use add/remove
+	if len(opts.SetLabels) > 0 {
+		for _, label := range opts.SetLabels {
+			args = append(args, "--set-labels="+label)
+		}
+	} else {
+		for _, label := range opts.AddLabels {
+			args = append(args, "--add-label="+label)
+		}
+		for _, label := range opts.RemoveLabels {
+			args = append(args, "--remove-label="+label)
+		}
 	}
 
 	_, err := b.run(args...)

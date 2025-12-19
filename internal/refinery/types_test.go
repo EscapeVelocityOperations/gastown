@@ -255,3 +255,53 @@ func TestMergeRequest_StatusChecks(t *testing.T) {
 		})
 	}
 }
+
+func TestFailureType_FailureLabel(t *testing.T) {
+	tests := []struct {
+		failureType FailureType
+		wantLabel   string
+	}{
+		{FailureNone, ""},
+		{FailureConflict, "needs-rebase"},
+		{FailureTestsFail, "needs-fix"},
+		{FailureBuildFail, "needs-fix"},
+		{FailureFlakyTest, "needs-fix"},
+		{FailurePushFail, "needs-retry"},
+		{FailureFetch, ""},
+		{FailureCheckout, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.failureType), func(t *testing.T) {
+			got := tt.failureType.FailureLabel()
+			if got != tt.wantLabel {
+				t.Errorf("FailureLabel() = %q, want %q", got, tt.wantLabel)
+			}
+		})
+	}
+}
+
+func TestFailureType_ShouldAssignToWorker(t *testing.T) {
+	tests := []struct {
+		failureType FailureType
+		wantAssign  bool
+	}{
+		{FailureNone, false},
+		{FailureConflict, true},
+		{FailureTestsFail, true},
+		{FailureBuildFail, true},
+		{FailureFlakyTest, true},
+		{FailurePushFail, false},
+		{FailureFetch, false},
+		{FailureCheckout, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.failureType), func(t *testing.T) {
+			got := tt.failureType.ShouldAssignToWorker()
+			if got != tt.wantAssign {
+				t.Errorf("ShouldAssignToWorker() = %v, want %v", got, tt.wantAssign)
+			}
+		})
+	}
+}
