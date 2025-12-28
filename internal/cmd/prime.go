@@ -108,6 +108,9 @@ func runPrime(cmd *cobra.Command, args []string) error {
 	// Ensure beads redirect exists for worktree-based roles
 	ensureBeadsRedirect(ctx)
 
+	// Report agent state as running (ZFC: agents self-report state)
+	reportAgentState(ctx, "running")
+
 	// Output context
 	if err := outputPrimeContext(ctx); err != nil {
 		return err
@@ -1047,6 +1050,59 @@ func acquireIdentityLock(ctx RoleContext) error {
 	}
 
 	return nil
+}
+
+// reportAgentState calls bd agent state to report the agent's current state.
+// This implements ZFC-compliant self-reporting of agent state.
+// Agents call this on startup (running) and shutdown (stopped).
+func reportAgentState(ctx RoleContext, state string) {
+	agentBeadID := getAgentBeadID(ctx)
+	if agentBeadID == "" {
+		return
+	}
+
+	// Call bd agent state <id> <state>
+	// Use --no-daemon to avoid issues when daemon isn't running
+	cmd := exec.Command("bd", "--no-daemon", "agent", "state", agentBeadID, state)
+	cmd.Dir = ctx.WorkDir
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+
+	// Run silently - don't fail prime if state reporting fails
+	_ = cmd.Run()
+}
+
+// getAgentBeadID returns the agent bead ID for the current role.
+// Returns empty string for unknown roles.
+func getAgentBeadID(ctx RoleContext) string {
+	switch ctx.Role {
+	case RoleMayor:
+		return "gt-mayor"
+	case RoleDeacon:
+		return "gt-deacon"
+	case RoleWitness:
+		if ctx.Rig != "" {
+			return fmt.Sprintf("gt-witness-%s", ctx.Rig)
+		}
+		return ""
+	case RoleRefinery:
+		if ctx.Rig != "" {
+			return fmt.Sprintf("gt-refinery-%s", ctx.Rig)
+		}
+		return ""
+	case RolePolecat:
+		if ctx.Rig != "" && ctx.Polecat != "" {
+			return fmt.Sprintf("gt-polecat-%s-%s", ctx.Rig, ctx.Polecat)
+		}
+		return ""
+	case RoleCrew:
+		if ctx.Rig != "" && ctx.Polecat != "" {
+			return fmt.Sprintf("gt-crew-%s-%s", ctx.Rig, ctx.Polecat)
+		}
+		return ""
+	default:
+		return ""
+	}
 }
 
 // ensureBeadsRedirect ensures the .beads/redirect file exists for worktree-based roles.

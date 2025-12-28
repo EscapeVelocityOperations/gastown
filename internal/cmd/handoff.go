@@ -155,6 +155,20 @@ func runHandoff(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Report agent state as stopped (ZFC: agents self-report state)
+	cwd, _ := os.Getwd()
+	if townRoot, _ := workspace.FindFromCwd(); townRoot != "" {
+		if roleInfo, err := GetRoleWithContext(cwd, townRoot); err == nil {
+			reportAgentState(RoleContext{
+				Role:     roleInfo.Role,
+				Rig:      roleInfo.Rig,
+				Polecat:  roleInfo.Polecat,
+				TownRoot: townRoot,
+				WorkDir:  cwd,
+			}, "stopped")
+		}
+	}
+
 	// Clear scrollback history before respawn (resets copy-mode from [0/N] to [0/0])
 	if err := t.ClearHistory(pane); err != nil {
 		// Non-fatal - continue with respawn even if clear fails
