@@ -165,7 +165,7 @@ func runResume(cmd *cobra.Command, args []string) error {
 	// Clear parked work state
 	if err := clearParkedWork(cloneRoot, agentID); err != nil {
 		// Non-fatal
-		fmt.Printf("%s Warning: could not clear parked state: %v\n", style.Dim.Render("⚠"), err)
+		style.PrintWarning("could not clear parked state: %v", err)
 	}
 
 	fmt.Printf("\n%s Ready to continue!\n", style.Bold.Render("✓"))

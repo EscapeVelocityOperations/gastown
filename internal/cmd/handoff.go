@@ -148,7 +148,7 @@ func runHandoff(cmd *cobra.Command, args []string) error {
 	// If subject/message provided, send handoff mail to self first
 	if handoffSubject != "" || handoffMessage != "" {
 		if err := sendHandoffMail(handoffSubject, handoffMessage); err != nil {
-			fmt.Printf("%s Warning: could not send handoff mail: %v\n", style.Dim.Render("⚠"), err)
+			style.PrintWarning("could not send handoff mail: %v", err)
 			// Continue anyway - the respawn is more important
 		} else {
 			fmt.Printf("%s Sent handoff mail\n", style.Bold.Render("📬"))
@@ -172,7 +172,7 @@ func runHandoff(cmd *cobra.Command, args []string) error {
 	// Clear scrollback history before respawn (resets copy-mode from [0/N] to [0/0])
 	if err := t.ClearHistory(pane); err != nil {
 		// Non-fatal - continue with respawn even if clear fails
-		fmt.Printf("%s Warning: could not clear history: %v\n", style.Dim.Render("⚠"), err)
+		style.PrintWarning("could not clear history: %v", err)
 	}
 
 	// Use exec to respawn the pane - this kills us and restarts
@@ -458,7 +458,7 @@ func handoffRemoteSession(t *tmux.Tmux, targetSession, restartCmd string) error 
 	// Clear scrollback history before respawn (resets copy-mode from [0/N] to [0/0])
 	if err := t.ClearHistory(targetPane); err != nil {
 		// Non-fatal - continue with respawn even if clear fails
-		fmt.Printf("%s Warning: could not clear history: %v\n", style.Dim.Render("⚠"), err)
+		style.PrintWarning("could not clear history: %v", err)
 	}
 
 	// Respawn the remote session's pane

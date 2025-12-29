@@ -208,7 +208,7 @@ func runDone(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("\nNotifying Witness...\n")
 	if err := townRouter.Send(doneNotification); err != nil {
-		fmt.Printf("  %s\n", style.Dim.Render(fmt.Sprintf("Warning: could not notify witness: %v", err)))
+		style.PrintWarning("could not notify witness: %v", err)
 	} else {
 		fmt.Printf("%s Witness notified of %s\n", style.Bold.Render("✓"), exitType)
 	}

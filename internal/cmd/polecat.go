@@ -567,7 +567,7 @@ func runPolecatRemove(cmd *cobra.Command, args []string) error {
 
 	// Report results
 	if len(removeErrors) > 0 {
-		fmt.Printf("\n%s Some removals failed:\n", style.Warning.Render("Warning:"))
+		style.PrintWarning("Some removals failed:")
 		for _, e := range removeErrors {
 			fmt.Printf("  - %s\n", e)
 		}
@@ -760,7 +760,7 @@ func runPolecatSync(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(syncErrors) > 0 {
-		fmt.Printf("\n%s Some syncs failed:\n", style.Warning.Render("Warning:"))
+		style.PrintWarning("Some syncs failed:")
 		for _, e := range syncErrors {
 			fmt.Printf("  - %s\n", e)
 		}
@@ -1364,7 +1364,7 @@ func runPolecatNuke(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(nukeErrors) > 0 {
-		fmt.Printf("\n%s Some nukes failed:\n", style.Warning.Render("Warning:"))
+		style.PrintWarning("Some nukes failed:")
 		for _, e := range nukeErrors {
 			fmt.Printf("  - %s\n", e)
 		}

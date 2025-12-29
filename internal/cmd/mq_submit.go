@@ -167,7 +167,7 @@ func runMqSubmit(cmd *cobra.Command, args []string) error {
 		fmt.Printf("%s Auto-cleanup: polecat work submitted\n", style.Bold.Render("✓"))
 		if err := polecatCleanup(rigName, worker, townRoot); err != nil {
 			// Non-fatal: warn but return success (MR was created)
-			fmt.Printf("%s Could not auto-cleanup: %v\n", style.Warning.Render("Warning:"), err)
+			style.PrintWarning("Could not auto-cleanup: %v", err)
 			fmt.Println(style.Dim.Render("  You may need to run 'gt handoff --shutdown' manually"))
 			return nil
 		}

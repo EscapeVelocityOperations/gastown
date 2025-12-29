@@ -325,7 +325,7 @@ func handleStepContinue(cwd, townRoot, workDir string, nextStep *beads.Issue, dr
 	// Clear history before respawn
 	if err := t.ClearHistory(pane); err != nil {
 		// Non-fatal
-		fmt.Printf("%s Warning: could not clear history: %v\n", style.Dim.Render("⚠"), err)
+		style.PrintWarning("could not clear history: %v", err)
 	}
 
 	return t.RespawnPane(pane, restartCmd)
@@ -377,7 +377,7 @@ func handleMoleculeComplete(cwd, townRoot, moleculeID string, dryRun bool) error
 			unpinCmd.Dir = gitRoot
 			unpinCmd.Stderr = os.Stderr
 			if err := unpinCmd.Run(); err != nil {
-				fmt.Printf("%s Warning: could not unpin bead: %v\n", style.Dim.Render("⚠"), err)
+				style.PrintWarning("could not unpin bead: %v", err)
 			} else {
 				fmt.Printf("%s Work unpinned\n", style.Bold.Render("✓"))
 			}

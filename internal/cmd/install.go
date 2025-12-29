@@ -97,8 +97,7 @@ func runInstall(cmd *cobra.Command, args []string) error {
 
 	// Check if inside an existing workspace
 	if existingRoot, _ := workspace.Find(absPath); existingRoot != "" && existingRoot != absPath {
-		fmt.Printf("%s Warning: Creating HQ inside existing workspace at %s\n",
-			style.Dim.Render("⚠"), existingRoot)
+		style.PrintWarning("Creating HQ inside existing workspace at %s", existingRoot)
 	}
 
 	fmt.Printf("%s Creating Gas Town HQ at %s\n\n",

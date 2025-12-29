@@ -375,7 +375,7 @@ func runSwarmStart(cmd *cobra.Command, args []string) error {
 	if len(sw.Workers) > 0 && len(sw.Tasks) > 0 {
 		fmt.Printf("\nSpawning workers...\n")
 		if err := spawnSwarmWorkers(foundRig, sw); err != nil {
-			fmt.Printf("Warning: failed to spawn some workers: %v\n", err)
+			style.PrintWarning("failed to spawn some workers: %v", err)
 		}
 	}
 
@@ -409,7 +409,7 @@ func spawnSwarmWorkers(r *rig.Rig, sw *swarm.Swarm) error {
 
 		// Update polecat state
 		if err := polecatMgr.AssignIssue(worker, task.IssueID); err != nil {
-			fmt.Printf("  Warning: couldn't assign %s to %s: %v\n", task.IssueID, worker, err)
+			style.PrintWarning("  couldn't assign %s to %s: %v", task.IssueID, worker, err)
 			continue
 		}
 
@@ -420,7 +420,7 @@ func spawnSwarmWorkers(r *rig.Rig, sw *swarm.Swarm) error {
 		} else {
 			fmt.Printf("  Starting %s...\n", worker)
 			if err := sessMgr.Start(worker, session.StartOptions{}); err != nil {
-				fmt.Printf("  Warning: couldn't start %s: %v\n", worker, err)
+				style.PrintWarning("  couldn't start %s: %v", worker, err)
 				continue
 			}
 			// Wait for Claude to initialize
@@ -431,7 +431,7 @@ func spawnSwarmWorkers(r *rig.Rig, sw *swarm.Swarm) error {
 		context := fmt.Sprintf("[SWARM] You are part of swarm %s.\n\nAssigned task: %s\nTitle: %s\n\nWork on this task. When complete, commit and signal DONE.",
 			sw.ID, task.IssueID, task.Title)
 		if err := sessMgr.Inject(worker, context); err != nil {
-			fmt.Printf("  Warning: couldn't inject to %s: %v\n", worker, err)
+			style.PrintWarning("  couldn't inject to %s: %v", worker, err)
 		} else {
 			fmt.Printf("  %s → %s ✓\n", worker, task.IssueID)
 		}

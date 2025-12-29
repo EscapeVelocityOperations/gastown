@@ -1,7 +1,11 @@
 // Package style provides consistent terminal styling using Lipgloss.
 package style
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"fmt"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 var (
 	// Success style for positive outcomes
@@ -43,3 +47,10 @@ var (
 	// ArrowPrefix for action indicators
 	ArrowPrefix = Info.Render("→")
 )
+
+// PrintWarning prints a warning message with consistent formatting.
+// The format and args work like fmt.Printf.
+func PrintWarning(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	fmt.Printf("%s %s\n", Warning.Render("⚠ Warning:"), msg)
+}

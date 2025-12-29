@@ -171,7 +171,7 @@ func startDeaconSession(t *tmux.Tmux) error {
 
 	// Ensure deacon has patrol hooks (idempotent)
 	if err := ensurePatrolHooks(deaconDir); err != nil {
-		fmt.Printf("%s Warning: Could not create deacon hooks: %v\n", style.Dim.Render("⚠"), err)
+		style.PrintWarning("Could not create deacon hooks: %v", err)
 	}
 
 	// Create session in deacon directory
@@ -300,7 +300,7 @@ func runDeaconRestart(cmd *cobra.Command, args []string) error {
 	if running {
 		// Kill existing session
 		if err := t.KillSession(DeaconSessionName); err != nil {
-			fmt.Printf("%s Warning: failed to kill session: %v\n", style.Dim.Render("⚠"), err)
+			style.PrintWarning("failed to kill session: %v", err)
 		}
 	}
 

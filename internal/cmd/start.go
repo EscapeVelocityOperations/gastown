@@ -753,7 +753,7 @@ func runStartCrew(cmd *cobra.Command, args []string) error {
 			}
 			time.Sleep(500 * time.Millisecond)
 			if err := t.SendKeys(sessionID, "gt prime"); err != nil {
-				fmt.Printf("Warning: Could not send prime command: %v\n", err)
+				style.PrintWarning("Could not send prime command: %v", err)
 			}
 		} else {
 			fmt.Printf("%s Session already running: %s\n", style.Dim.Render("○"), sessionID)
@@ -801,7 +801,7 @@ func runStartCrew(cmd *cobra.Command, args []string) error {
 
 		// Send gt prime to initialize context
 		if err := t.SendKeys(sessionID, "gt prime"); err != nil {
-			fmt.Printf("Warning: Could not send prime command: %v\n", err)
+			style.PrintWarning("Could not send prime command: %v", err)
 		}
 
 		fmt.Printf("%s Started crew workspace: %s/%s\n",
@@ -903,15 +903,15 @@ func startCrewMember(rigName, crewName, townRoot string) error {
 		return fmt.Errorf("creating session: %w", err)
 	}
 
-	// Set environment
+	// Set environment (non-fatal: session works without these)
 	_ = t.SetEnvironment(sessionID, "GT_RIG", rigName)
 	_ = t.SetEnvironment(sessionID, "GT_CREW", crewName)
 
-	// Apply rig-based theming
+	// Apply rig-based theming (non-fatal: theming failure doesn't affect operation)
 	theme := getThemeForRig(rigName)
 	_ = t.ConfigureGasTownSession(sessionID, theme, rigName, crewName, "crew")
 
-	// Set up C-b n/p keybindings for crew session cycling
+	// Set up C-b n/p keybindings for crew session cycling (non-fatal)
 	_ = t.SetCrewCycleBindings(sessionID)
 
 	// Wait for shell to be ready
@@ -933,7 +933,7 @@ func startCrewMember(rigName, crewName, townRoot string) error {
 	// Give Claude time to initialize
 	time.Sleep(500 * time.Millisecond)
 
-	// Send gt prime to initialize context
+	// Send gt prime to initialize context (non-fatal: session works without priming)
 	_ = t.SendKeys(sessionID, "gt prime")
 
 	return nil

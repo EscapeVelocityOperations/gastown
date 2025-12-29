@@ -250,13 +250,13 @@ func runCrewRestart(cmd *cobra.Command, args []string) error {
 	// Wait for Claude to start, then prime it
 	shells := []string{"bash", "zsh", "sh", "fish", "tcsh", "ksh"}
 	if err := t.WaitForCommand(sessionID, shells, 15*time.Second); err != nil {
-		fmt.Printf("Warning: Timeout waiting for Claude to start: %v\n", err)
+		style.PrintWarning("Timeout waiting for Claude to start: %v", err)
 	}
 	// Give Claude time to initialize after process starts
 	time.Sleep(500 * time.Millisecond)
 	if err := t.SendKeys(sessionID, "gt prime"); err != nil {
 		// Non-fatal: Claude started but priming failed
-		fmt.Printf("Warning: Could not send prime command: %v\n", err)
+		style.PrintWarning("Could not send prime command: %v", err)
 	}
 
 	// Send crew resume prompt after prime completes
@@ -265,7 +265,7 @@ func runCrewRestart(cmd *cobra.Command, args []string) error {
 	time.Sleep(5 * time.Second)
 	crewPrompt := "Read your mail, act on anything urgent, else await instructions."
 	if err := t.NudgeSession(sessionID, crewPrompt); err != nil {
-		fmt.Printf("Warning: Could not send resume prompt: %v\n", err)
+		style.PrintWarning("Could not send resume prompt: %v", err)
 	}
 
 	fmt.Printf("%s Restarted crew workspace: %s/%s\n",

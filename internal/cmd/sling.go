@@ -257,7 +257,7 @@ func runSling(cmd *cobra.Command, args []string) error {
 	if slingArgs != "" {
 		if err := storeArgsInBead(beadID, slingArgs); err != nil {
 			// Warn but don't fail - args will still be in the nudge prompt
-			fmt.Printf("%s Could not store args in bead: %v\n", style.Dim.Render("Warning:"), err)
+			style.PrintWarning("Could not store args in bead: %v", err)
 		} else {
 			fmt.Printf("%s Args stored in bead (durable)\n", style.Bold.Render("✓"))
 		}
@@ -614,7 +614,7 @@ func runSlingFormula(args []string) error {
 	}
 	if err := json.Unmarshal(wispOut, &wispResult); err != nil {
 		// Fallback: use formula name as identifier, but warn user
-		fmt.Printf("%s Could not parse wisp output, using formula name as ID\n", style.Dim.Render("Warning:"))
+		style.PrintWarning("Could not parse wisp output, using formula name as ID")
 		wispResult.RootID = formulaName
 	}
 
@@ -634,7 +634,7 @@ func runSlingFormula(args []string) error {
 	// Store args in wisp bead if provided (no-tmux mode: beads as data plane)
 	if slingArgs != "" {
 		if err := storeArgsInBead(wispResult.RootID, slingArgs); err != nil {
-			fmt.Printf("%s Could not store args in bead: %v\n", style.Dim.Render("Warning:"), err)
+			style.PrintWarning("Could not store args in bead: %v", err)
 		} else {
 			fmt.Printf("%s Args stored in bead (durable)\n", style.Bold.Render("✓"))
 		}

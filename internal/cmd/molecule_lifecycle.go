@@ -238,8 +238,7 @@ squashed_at: %s
 		Status: &closedStatus,
 	})
 	if err != nil {
-		fmt.Printf("%s Created digest but couldn't close it: %v\n",
-			style.Dim.Render("Warning:"), err)
+		style.PrintWarning("Created digest but couldn't close it: %v", err)
 	}
 
 	// Detach the molecule from the handoff bead with audit logging
@@ -282,8 +281,7 @@ func closeDescendants(b *beads.Beads, parentID string) int {
 		Status: "all",
 	})
 	if err != nil {
-		fmt.Printf("%s Warning: could not list children of %s: %v\n",
-			style.Dim.Render("⚠"), parentID, err)
+		style.PrintWarning("could not list children of %s: %v", parentID, err)
 		return 0
 	}
 
@@ -307,8 +305,7 @@ func closeDescendants(b *beads.Beads, parentID string) int {
 
 	if len(idsToClose) > 0 {
 		if closeErr := b.Close(idsToClose...); closeErr != nil {
-			fmt.Printf("%s Warning: could not close children of %s: %v\n",
-				style.Dim.Render("⚠"), parentID, closeErr)
+			style.PrintWarning("could not close children of %s: %v", parentID, closeErr)
 		} else {
 			totalClosed += len(idsToClose)
 		}

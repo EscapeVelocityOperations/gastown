@@ -93,7 +93,7 @@ func runCrewAdd(cmd *cobra.Command, args []string) error {
 		desc := fmt.Sprintf("Crew worker %s in %s - human-managed persistent workspace.", name, rigName)
 		if _, err := bd.CreateAgentBead(crewID, desc, fields); err != nil {
 			// Non-fatal: warn but don't fail the add
-			fmt.Printf("  %s\n", style.Dim.Render(fmt.Sprintf("Warning: could not create agent bead: %v", err)))
+			style.PrintWarning("could not create agent bead: %v", err)
 		} else {
 			fmt.Printf("  Agent bead: %s\n", crewID)
 		}

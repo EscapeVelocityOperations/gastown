@@ -111,7 +111,7 @@ func runMoleculeAttachFromMail(cmd *cobra.Command, args []string) error {
 	// Mark mail as read
 	if err := mailbox.MarkRead(mailID); err != nil {
 		// Non-fatal: log warning but don't fail
-		fmt.Fprintf(os.Stderr, "Warning: could not mark mail as read: %v\n", err)
+		style.PrintWarning("could not mark mail as read: %v", err)
 	}
 
 	// Output success

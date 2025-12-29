@@ -186,7 +186,7 @@ func runWitnessStop(cmd *cobra.Command, args []string) error {
 	running, _ := t.HasSession(sessionName)
 	if running {
 		if err := t.KillSession(sessionName); err != nil {
-			fmt.Printf("%s Warning: failed to kill session: %v\n", style.Dim.Render("⚠"), err)
+			style.PrintWarning("failed to kill session: %v", err)
 		}
 	}
 
@@ -412,7 +412,7 @@ func runWitnessRestart(cmd *cobra.Command, args []string) error {
 	running, _ := t.HasSession(sessionName)
 	if running {
 		if err := t.KillSession(sessionName); err != nil {
-			fmt.Printf("%s Warning: failed to kill session: %v\n", style.Dim.Render("⚠"), err)
+			style.PrintWarning("failed to kill session: %v", err)
 		}
 	}
 
