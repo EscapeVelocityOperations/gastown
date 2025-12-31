@@ -100,6 +100,7 @@ type Issue struct {
 	DependsOn   []string `json:"depends_on,omitempty"`
 	Blocks      []string `json:"blocks,omitempty"`
 	BlockedBy   []string `json:"blocked_by,omitempty"`
+	Labels      []string `json:"labels,omitempty"`
 
 	// Agent bead slots (type=agent only)
 	HookBead string `json:"hook_bead,omitempty"` // Current work attached to agent's hook
@@ -996,6 +997,101 @@ func DeaconBeadID() string {
 	return "gt-deacon"
 }
 
+// DogBeadID returns a Dog agent bead ID.
+// Dogs are town-level agents, so they follow the pattern: gt-dog-<name>
+func DogBeadID(name string) string {
+	return "gt-dog-" + name
+}
+
+// DogRoleBeadID returns the Dog role bead ID.
+func DogRoleBeadID() string {
+	return RoleBeadID("dog")
+}
+
+// CreateDogAgentBead creates an agent bead for a dog.
+// Dogs use a different schema than other agents - they use labels for metadata.
+// Returns the created issue or an error.
+func (b *Beads) CreateDogAgentBead(name, location string) (*Issue, error) {
+	title := fmt.Sprintf("Dog: %s", name)
+	labels := []string{
+		"role_type:dog",
+		"rig:town",
+		"location:" + location,
+	}
+
+	args := []string{
+		"create", "--json",
+		"--type=agent",
+		"--role-type=dog",
+		"--title=" + title,
+		"--labels=" + strings.Join(labels, ","),
+	}
+
+	// Default actor from BD_ACTOR env var for provenance tracking
+	if actor := os.Getenv("BD_ACTOR"); actor != "" {
+		args = append(args, "--actor="+actor)
+	}
+
+	out, err := b.run(args...)
+	if err != nil {
+		return nil, err
+	}
+
+	var issue Issue
+	if err := json.Unmarshal(out, &issue); err != nil {
+		return nil, fmt.Errorf("parsing bd create output: %w", err)
+	}
+
+	return &issue, nil
+}
+
+// FindDogAgentBead finds the agent bead for a dog by name.
+// Searches for agent beads with role_type:dog and matching title.
+// Returns nil if not found.
+func (b *Beads) FindDogAgentBead(name string) (*Issue, error) {
+	// List all agent beads and filter by role_type:dog label
+	issues, err := b.List(ListOptions{
+		Type:     "agent",
+		Status:   "all",
+		Priority: -1, // No priority filter
+	})
+	if err != nil {
+		return nil, fmt.Errorf("listing agents: %w", err)
+	}
+
+	expectedTitle := fmt.Sprintf("Dog: %s", name)
+	for _, issue := range issues {
+		// Check title match and role_type:dog label
+		if issue.Title == expectedTitle {
+			for _, label := range issue.Labels {
+				if label == "role_type:dog" {
+					return issue, nil
+				}
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+// DeleteDogAgentBead finds and deletes the agent bead for a dog.
+// Returns nil if the bead doesn't exist (idempotent).
+func (b *Beads) DeleteDogAgentBead(name string) error {
+	issue, err := b.FindDogAgentBead(name)
+	if err != nil {
+		return fmt.Errorf("finding dog bead: %w", err)
+	}
+	if issue == nil {
+		return nil // Already doesn't exist - idempotent
+	}
+
+	err = b.DeleteAgentBead(issue.ID)
+	if err != nil {
+		return fmt.Errorf("deleting bead %s: %w", issue.ID, err)
+	}
+	return nil
+}
+
 // WitnessBeadIDWithPrefix returns the Witness agent bead ID for a rig using the specified prefix.
 func WitnessBeadIDWithPrefix(prefix, rig string) string {
 	return AgentBeadIDWithPrefix(prefix, rig, "witness", "")
@@ -1057,14 +1153,25 @@ func ParseAgentBeadID(id string) (rig, role, name string, ok bool) {
 		// Town-level: gt-mayor, bd-deacon
 		return "", parts[0], "", true
 	case 2:
-		// Rig-level singleton: gt-gastown-witness, bd-beads-witness
+		// Could be rig-level singleton (gt-gastown-witness) or
+		// town-level named (gt-dog-alpha for dogs)
+		if parts[0] == "dog" {
+			// Dogs are town-level named agents: gt-dog-<name>
+			return "", "dog", parts[1], true
+		}
+		// Rig-level singleton: gt-gastown-witness
 		return parts[0], parts[1], "", true
 	case 3:
 		// Rig-level named: gt-gastown-crew-max, bd-beads-polecat-pearl
 		return parts[0], parts[1], parts[2], true
 	default:
 		// Handle names with hyphens: gt-gastown-polecat-my-agent-name
+		// or gt-dog-my-agent-name
 		if len(parts) >= 3 {
+			if parts[0] == "dog" {
+				// Dog with hyphenated name: gt-dog-my-dog-name
+				return "", "dog", strings.Join(parts[1:], "-"), true
+			}
 			return parts[0], parts[1], strings.Join(parts[2:], "-"), true
 		}
 		return "", "", "", false
@@ -1082,7 +1189,7 @@ func IsAgentSessionBead(beadID string) bool {
 	}
 	// Known agent roles
 	switch role {
-	case "mayor", "deacon", "witness", "refinery", "crew", "polecat":
+	case "mayor", "deacon", "witness", "refinery", "crew", "polecat", "dog":
 		return true
 	default:
 		return false

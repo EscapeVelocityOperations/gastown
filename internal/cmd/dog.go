@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/steveyegge/gastown/internal/beads"
 	"github.com/steveyegge/gastown/internal/config"
 	"github.com/steveyegge/gastown/internal/dog"
 	"github.com/steveyegge/gastown/internal/style"
@@ -201,6 +202,21 @@ func runDogAdd(cmd *cobra.Command, args []string) error {
 		fmt.Printf("    %s: %s\n", rigName, path)
 	}
 
+	// Create agent bead for the dog
+	townRoot, _ := workspace.FindFromCwd()
+	if townRoot != "" {
+		b := beads.New(townRoot)
+		location := filepath.Join("deacon", "dogs", name)
+
+		issue, err := b.CreateDogAgentBead(name, location)
+		if err != nil {
+			// Non-fatal: warn but don't fail dog creation
+			fmt.Printf("  Warning: could not create agent bead: %v\n", err)
+		} else {
+			fmt.Printf("  Agent bead: %s\n", issue.ID)
+		}
+	}
+
 	return nil
 }
 
@@ -227,6 +243,13 @@ func runDogRemove(cmd *cobra.Command, args []string) error {
 		names = args
 	}
 
+	// Get beads client for cleanup
+	townRoot, _ := workspace.FindFromCwd()
+	var b *beads.Beads
+	if townRoot != "" {
+		b = beads.New(townRoot)
+	}
+
 	for _, name := range names {
 		d, err := mgr.Get(name)
 		if err != nil {
@@ -244,6 +267,14 @@ func runDogRemove(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("✓ Removed dog %s\n", name)
+
+		// Delete agent bead for the dog
+		if b != nil {
+			if err := b.DeleteDogAgentBead(name); err != nil {
+				// Non-fatal: warn but don't fail dog removal
+				fmt.Printf("  Warning: could not delete agent bead: %v\n", err)
+			}
+		}
 	}
 
 	return nil
