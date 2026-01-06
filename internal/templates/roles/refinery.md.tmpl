@@ -225,7 +225,7 @@ If queue empty, skip to context-check step.
 
 **process-branch**: Pick next branch, rebase on main
 ```bash
-git checkout -b temp origin/polecat/<worker>
+git checkout -b temp polecat/<worker>    # Local branch (shared via .repo.git)
 git rebase origin/{{ .DefaultBranch }}
 ```
 If conflicts unresolvable: notify polecat, skip to loop-check.
@@ -255,7 +255,7 @@ git checkout {{ .DefaultBranch }}
 git merge --ff-only temp
 git push origin {{ .DefaultBranch }}
 git branch -d temp
-git push origin --delete polecat/<worker>
+git branch -d polecat/<worker>           # Delete local polecat branch
 ```
 
 **loop-check**: More branches? Return to process-branch.
