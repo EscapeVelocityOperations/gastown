@@ -1289,12 +1289,25 @@ func runPolecatNuke(cmd *cobra.Command, args []string) error {
 				}
 
 				// Check 3: Work on hook (check both Issue.HookBead from slot and fields.HookBead)
+				// Only flag as blocking if the hooked bead is still in an active status.
+				// If the hooked bead was closed externally (gt-jc7bq), don't block nuke.
 				hookBead := agentIssue.HookBead
 				if hookBead == "" {
 					hookBead = fields.HookBead
 				}
 				if hookBead != "" {
-					reasons = append(reasons, fmt.Sprintf("has work on hook (%s)", hookBead))
+					// Check if hooked bead is still active (not closed)
+					hookedIssue, err := bd.Show(hookBead)
+					if err == nil && hookedIssue != nil {
+						// Only block if bead is still active (not closed)
+						if hookedIssue.Status != "closed" {
+							reasons = append(reasons, fmt.Sprintf("has work on hook (%s)", hookBead))
+						}
+						// If closed, the hook is stale - don't block nuke
+					} else {
+						// Can't verify hooked bead - be conservative
+						reasons = append(reasons, fmt.Sprintf("has work on hook (%s, unverified)", hookBead))
+					}
 				}
 			}
 
@@ -1386,7 +1399,13 @@ func runPolecatNuke(cmd *cobra.Command, args []string) error {
 					hookBead = fields.HookBead
 				}
 				if hookBead != "" {
-					fmt.Printf("    - Hook: %s (%s)\n", style.Error.Render("has work"), hookBead)
+					// Check if hooked bead is still active
+					hookedIssue, err := bd.Show(hookBead)
+					if err == nil && hookedIssue != nil && hookedIssue.Status == "closed" {
+						fmt.Printf("    - Hook: %s (%s, closed - stale)\n", style.Warning.Render("stale"), hookBead)
+					} else {
+						fmt.Printf("    - Hook: %s (%s)\n", style.Error.Render("has work"), hookBead)
+					}
 				} else {
 					fmt.Printf("    - Hook: %s\n", style.Success.Render("empty"))
 				}
