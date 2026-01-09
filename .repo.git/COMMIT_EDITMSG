@@ -1,13 +1,1 @@
-Merge polecat/cheedo-mk78ard5 into main
-
-Enhancements to gt sling --start feature:
-- --start-polecat=<name>: Explicit polecat selection
-- --start-preference: Selection preference (any|newest|oldest|cleanest)
-- --start --naked interaction: --start takes precedence
-- Dry-run output shows idle polecat behavior
-- Metrics (reuse=true) in activity feed
-
-Resolved conflicts in internal/cmd/polecat_spawn.go:
-- Enhanced FindIdlePolecat with options and preference logic
-- Added CreatedAt and Clean fields to IdlePolecatInfo
-- Added reuse=true metric to activity feed
+initial
