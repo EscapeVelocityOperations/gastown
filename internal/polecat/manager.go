@@ -1,3 +1,5 @@
+// Liftoff test: 2026-01-09T14:30:00
+
 package polecat
 
 import (
