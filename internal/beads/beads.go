@@ -343,7 +343,8 @@ type DelegationTerms struct {
 // ListOptions specifies filters for listing issues.
 type ListOptions struct {
 	Status     string // "open", "closed", "all"
-	Type       string // "task", "bug", "feature", "epic"
+	Type       string // Deprecated: use Label instead. "task", "bug", "feature", "epic"
+	Label      string // Label filter (e.g., "gt:agent", "gt:merge-request")
 	Priority   int    // 0-4, -1 for no filter
 	Parent     string // filter by parent ID
 	Assignee   string // filter by assignee (e.g., "gastown/Toast")
@@ -464,8 +465,12 @@ func (b *Beads) List(opts ListOptions) ([]*Issue, error) {
 	if opts.Status != "" {
 		args = append(args, "--status="+opts.Status)
 	}
-	if opts.Type != "" {
-		args = append(args, "--type="+opts.Type)
+	// Prefer Label over Type (Type is deprecated)
+	if opts.Label != "" {
+		args = append(args, "--label="+opts.Label)
+	} else if opts.Type != "" {
+		// Deprecated: convert type to label for backward compatibility
+		args = append(args, "--label=gt:"+opts.Type)
 	}
 	if opts.Priority >= 0 {
 		args = append(args, fmt.Sprintf("--priority=%d", opts.Priority))
@@ -549,10 +554,11 @@ func (b *Beads) Ready() ([]*Issue, error) {
 	return issues, nil
 }
 
-// ReadyWithType returns ready issues filtered by type.
-// Uses bd ready --type flag for server-side filtering.
+// ReadyWithType returns ready issues filtered by label.
+// Uses bd ready --label flag for server-side filtering.
+// The issueType is converted to a gt:<type> label (e.g., "molecule" -> "gt:molecule").
 func (b *Beads) ReadyWithType(issueType string) ([]*Issue, error) {
-	out, err := b.run("ready", "--json", "--type", issueType, "-n", "100")
+	out, err := b.run("ready", "--json", "--label", "gt:"+issueType, "-n", "100")
 	if err != nil {
 		return nil, err
 	}
@@ -616,7 +622,7 @@ func (b *Beads) ShowMultiple(ids []string) (map[string]*Issue, error) {
 // ListAgentBeads returns all agent beads in a single query.
 // Returns a map of agent bead ID to Issue.
 func (b *Beads) ListAgentBeads() (map[string]*Issue, error) {
-	out, err := b.run("list", "--type=agent", "--json")
+	out, err := b.run("list", "--label=gt:agent", "--json")
 	if err != nil {
 		return nil, err
 	}
@@ -658,8 +664,9 @@ func (b *Beads) Create(opts CreateOptions) (*Issue, error) {
 	if opts.Title != "" {
 		args = append(args, "--title="+opts.Title)
 	}
+	// Type is deprecated: convert to gt:<type> label
 	if opts.Type != "" {
-		args = append(args, "--type="+opts.Type)
+		args = append(args, "--add-label=gt:"+opts.Type)
 	}
 	if opts.Priority >= 0 {
 		args = append(args, fmt.Sprintf("--priority=%d", opts.Priority))
@@ -701,8 +708,9 @@ func (b *Beads) CreateWithID(id string, opts CreateOptions) (*Issue, error) {
 	if opts.Title != "" {
 		args = append(args, "--title="+opts.Title)
 	}
+	// Type is deprecated: convert to gt:<type> label
 	if opts.Type != "" {
-		args = append(args, "--type="+opts.Type)
+		args = append(args, "--add-label=gt:"+opts.Type)
 	}
 	if opts.Priority >= 0 {
 		args = append(args, fmt.Sprintf("--priority=%d", opts.Priority))
@@ -1127,9 +1135,9 @@ func (b *Beads) CreateAgentBead(id, title string, fields *AgentFields) (*Issue, 
 
 	args := []string{"create", "--json",
 		"--id=" + id,
-		"--type=agent",
 		"--title=" + title,
 		"--description=" + description,
+		"--add-label=gt:agent",
 	}
 
 	// Default actor from BD_ACTOR env var for provenance tracking
@@ -1347,8 +1355,8 @@ func (b *Beads) GetAgentBead(id string) (*Issue, *AgentFields, error) {
 		return nil, nil, err
 	}
 
-	if issue.Type != "agent" {
-		return nil, nil, fmt.Errorf("issue %s is not an agent bead (type: %s)", id, issue.Type)
+	if !HasLabel(issue, "gt:agent") {
+		return nil, nil, fmt.Errorf("issue %s is not an agent bead (missing gt:agent label)", id)
 	}
 
 	fields := ParseAgentFields(issue.Description)
@@ -1427,6 +1435,7 @@ func DogRoleBeadID() string {
 func (b *Beads) CreateDogAgentBead(name, location string) (*Issue, error) {
 	title := fmt.Sprintf("Dog: %s", name)
 	labels := []string{
+		"gt:agent",
 		"role_type:dog",
 		"rig:town",
 		"location:" + location,
@@ -1434,7 +1443,6 @@ func (b *Beads) CreateDogAgentBead(name, location string) (*Issue, error) {
 
 	args := []string{
 		"create", "--json",
-		"--type=agent",
 		"--role-type=dog",
 		"--title=" + title,
 		"--labels=" + strings.Join(labels, ","),
@@ -1464,7 +1472,7 @@ func (b *Beads) CreateDogAgentBead(name, location string) (*Issue, error) {
 func (b *Beads) FindDogAgentBead(name string) (*Issue, error) {
 	// List all agent beads and filter by role_type:dog label
 	issues, err := b.List(ListOptions{
-		Type:     "agent",
+		Label:    "gt:agent",
 		Status:   "all",
 		Priority: -1, // No priority filter
 	})
@@ -1674,11 +1682,21 @@ func (b *Beads) GetRoleConfig(roleBeadID string) (*RoleConfig, error) {
 		return nil, err
 	}
 
-	if issue.Type != "role" {
-		return nil, fmt.Errorf("bead %s is not a role bead (type: %s)", roleBeadID, issue.Type)
+	if !HasLabel(issue, "gt:role") {
+		return nil, fmt.Errorf("bead %s is not a role bead (missing gt:role label)", roleBeadID)
 	}
 
 	return ParseRoleConfig(issue.Description), nil
+}
+
+// HasLabel checks if an issue has a specific label.
+func HasLabel(issue *Issue, label string) bool {
+	for _, l := range issue.Labels {
+		if l == label {
+			return true
+		}
+	}
+	return false
 }
 
 // FindMRForBranch searches for an existing merge-request bead for the given branch.
@@ -1688,7 +1706,7 @@ func (b *Beads) FindMRForBranch(branch string) (*Issue, error) {
 	// List all merge-request beads (open status only - closed MRs are already processed)
 	issues, err := b.List(ListOptions{
 		Status: "open",
-		Type:   "merge-request",
+		Label:  "gt:merge-request",
 	})
 	if err != nil {
 		return nil, err
@@ -1921,9 +1939,9 @@ func (b *Beads) CreateRigBead(id, title string, fields *RigFields) (*Issue, erro
 
 	args := []string{"create", "--json",
 		"--id=" + id,
-		"--type=rig",
 		"--title=" + title,
 		"--description=" + description,
+		"--add-label=gt:rig",
 	}
 
 	// Default actor from BD_ACTOR env var for provenance tracking
