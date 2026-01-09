@@ -32,6 +32,11 @@ Workspace checks:
   - rigs-registry-valid      Check registered rigs exist (fixable)
   - mayor-exists             Check mayor/ directory structure
 
+Town root protection:
+  - town-git                 Verify town root is under version control
+  - town-root-branch         Verify town root is on main branch (fixable)
+  - pre-checkout-hook        Verify pre-checkout hook prevents branch switches (fixable)
+
 Infrastructure checks:
   - daemon                   Check if daemon is running (fixable)
   - repo-fingerprint         Check database has valid repo fingerprint (fixable)
@@ -112,6 +117,8 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 
 	// Register built-in checks
 	d.Register(doctor.NewTownGitCheck())
+	d.Register(doctor.NewTownRootBranchCheck())
+	d.Register(doctor.NewPreCheckoutHookCheck())
 	d.Register(doctor.NewDaemonCheck())
 	d.Register(doctor.NewRepoFingerprintCheck())
 	d.Register(doctor.NewBootHealthCheck())
