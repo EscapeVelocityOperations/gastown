@@ -1,0 +1,11 @@
+feat: implement recommendations from gt sling --start review
+
+Adds 5 enhancements to the --start flag based on code review:
+
+1. --start-polecat=<name>: Explicit polecat selection by name
+2. --start-preference: Selection preference (any|newest|oldest|cleanest)
+3. --start --naked interaction: --start takes precedence with warning
+4. Fix dry-run output to indicate idle polecat behavior
+5. Add metrics (reuse=true) to track idle polecat reuse rate
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>

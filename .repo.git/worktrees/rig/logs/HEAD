@@ -1,0 +1,7 @@
+7ae08ed2198375f4993851ebe1204430df250cbd 7ae08ed2198375f4993851ebe1204430df250cbd Eric Cestari <eric@escapevelocity.fr> 1767640333 +0100	reset: moving to HEAD
+7ae08ed2198375f4993851ebe1204430df250cbd f0680daa69660223ef5e34d05490881328ef9882 Eric Cestari <eric@escapevelocity.fr> 1767878473 +0100	commit: feat: add .runtime/overlay/ support for polecat/crew worktrees
+f0680daa69660223ef5e34d05490881328ef9882 f0680daa69660223ef5e34d05490881328ef9882 Eric Cestari <eric@escapevelocity.fr> 1767878485 +0100	checkout: moving from main to feat/runtime-overlay
+f0680daa69660223ef5e34d05490881328ef9882 f0680daa69660223ef5e34d05490881328ef9882 Eric Cestari <eric@escapevelocity.fr> 1767878510 +0100	reset: moving to f0680daa69660223ef5e34d05490881328ef9882
+f0680daa69660223ef5e34d05490881328ef9882 0ada8e9a8efc0d9c2f9b32ce9d247500fb5c8e83 Eric Cestari <eric@escapevelocity.fr> 1767981451 +0100	rebase (start): checkout FETCH_HEAD
+0ada8e9a8efc0d9c2f9b32ce9d247500fb5c8e83 f0680daa69660223ef5e34d05490881328ef9882 Eric Cestari <eric@escapevelocity.fr> 1767981458 +0100	rebase (abort): returning to refs/heads/feat/runtime-overlay
+f0680daa69660223ef5e34d05490881328ef9882 0ada8e9a8efc0d9c2f9b32ce9d247500fb5c8e83 Eric Cestari <eric@escapevelocity.fr> 1767981466 +0100	reset: moving to FETCH_HEAD

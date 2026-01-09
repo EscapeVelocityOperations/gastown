@@ -1,0 +1,12 @@
+feat: add .runtime/overlay/ support for polecat/crew worktrees
+
+Add overlay directory support to automatically copy gitignored files
+(like .env, config files) from <rig>/.runtime/overlay/ to polecat
+and crew worktree roots when they are spawned.
+
+This allows services started by polecats/crew to have their required
+configuration files at the root without committing them to git.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
