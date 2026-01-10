@@ -371,7 +371,7 @@ func (d *Daemon) restartSession(sessionName, identity string) error {
 	}
 
 	// Set environment variables
-	d.setSessionEnvironment(sessionName, identity, config, parsed)
+	d.setSessionEnvironment(sessionName, config, parsed)
 
 	// Apply theme (non-fatal: theming failure doesn't affect operation)
 	d.applySessionTheme(sessionName, parsed)
@@ -488,7 +488,7 @@ func (d *Daemon) getStartCommand(roleConfig *beads.RoleConfig, parsed *ParsedIde
 
 // setSessionEnvironment sets environment variables for the tmux session.
 // Uses centralized AgentEnv for consistency, plus role bead custom env vars if available.
-func (d *Daemon) setSessionEnvironment(sessionName, identity string, roleConfig *beads.RoleConfig, parsed *ParsedIdentity) {
+func (d *Daemon) setSessionEnvironment(sessionName string, roleConfig *beads.RoleConfig, parsed *ParsedIdentity) {
 	// Determine beads dir based on role type
 	var beadsPath string
 	if parsed.RigName != "" {
