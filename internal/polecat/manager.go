@@ -1,3 +1,5 @@
+// Liftoff test: 2026-01-09T14:30:00
+
 package polecat
 
 import (
@@ -277,6 +279,14 @@ func (m *Manager) AddWithOptions(name string, opts AddOptions) (*Polecat, error)
 		// Non-fatal - polecat can still work with local beads
 		// Log warning but don't fail the spawn
 		fmt.Printf("Warning: could not set up shared beads: %v\n", err)
+	}
+
+	// Provision PRIME.md with Gas Town context for this worker.
+	// This is the fallback if SessionStart hook fails - ensures polecats
+	// always have GUPP and essential Gas Town context.
+	if err := beads.ProvisionPrimeMDForWorktree(clonePath); err != nil {
+		// Non-fatal - polecat can still work via hook, warn but don't fail
+		fmt.Printf("Warning: could not provision PRIME.md: %v\n", err)
 	}
 
 	// Copy overlay files from .runtime/overlay/ to polecat root.
@@ -570,8 +580,9 @@ func (m *Manager) RepairWorktreeWithOptions(name string, force bool, opts AddOpt
 	}, nil
 }
 
-// ReconcilePool syncs pool state with existing polecat directories.
-// This should be called to recover from crashes or stale state.
+// ReconcilePool derives pool InUse state from existing polecat directories.
+// This implements ZFC: InUse is discovered from filesystem, not tracked separately.
+// Called before each allocation to ensure InUse reflects reality.
 func (m *Manager) ReconcilePool() {
 	polecats, err := m.List()
 	if err != nil {
@@ -584,7 +595,7 @@ func (m *Manager) ReconcilePool() {
 	}
 
 	m.namePool.Reconcile(names)
-	_ = m.namePool.Save() // non-fatal: state file update
+	// Note: No Save() needed - InUse is transient state, only OverflowNext is persisted
 }
 
 // PoolStatus returns information about the name pool.

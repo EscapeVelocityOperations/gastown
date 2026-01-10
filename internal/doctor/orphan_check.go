@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/steveyegge/gastown/internal/events"
 	"github.com/steveyegge/gastown/internal/session"
 	"github.com/steveyegge/gastown/internal/tmux"
 )
@@ -26,6 +27,7 @@ func NewOrphanSessionCheck() *OrphanSessionCheck {
 			BaseCheck: BaseCheck{
 				CheckName:        "orphan-sessions",
 				CheckDescription: "Detect orphaned tmux sessions",
+				CheckCategory:    CategoryCleanup,
 			},
 		},
 	}
@@ -115,13 +117,16 @@ func (c *OrphanSessionCheck) Fix(ctx *CheckContext) error {
 	t := tmux.NewTmux()
 	var lastErr error
 
-	for _, session := range c.orphanSessions {
+	for _, sess := range c.orphanSessions {
 		// SAFEGUARD: Never auto-kill crew sessions.
 		// Crew workers are human-managed and require explicit action.
-		if isCrewSession(session) {
+		if isCrewSession(sess) {
 			continue
 		}
-		if err := t.KillSession(session); err != nil {
+		// Log pre-death event for crash investigation (before killing)
+		_ = events.LogFeed(events.TypeSessionDeath, sess,
+			events.SessionDeathPayload(sess, "unknown", "orphan cleanup", "gt doctor"))
+		if err := t.KillSession(sess); err != nil {
 			lastErr = err
 		}
 	}
@@ -240,6 +245,7 @@ func NewOrphanProcessCheck() *OrphanProcessCheck {
 		BaseCheck: BaseCheck{
 			CheckName:        "orphan-processes",
 			CheckDescription: "Detect runtime processes outside tmux",
+			CheckCategory:    CategoryCleanup,
 		},
 	}
 }

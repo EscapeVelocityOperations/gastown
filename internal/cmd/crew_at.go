@@ -4,10 +4,12 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/steveyegge/gastown/internal/beads"
 	"github.com/steveyegge/gastown/internal/config"
 	"github.com/steveyegge/gastown/internal/constants"
 	"github.com/steveyegge/gastown/internal/crew"
 	"github.com/steveyegge/gastown/internal/runtime"
+	"github.com/steveyegge/gastown/internal/session"
 	"github.com/steveyegge/gastown/internal/style"
 	"github.com/steveyegge/gastown/internal/tmux"
 	"github.com/steveyegge/gastown/internal/workspace"
@@ -137,13 +139,18 @@ func runCrewAt(cmd *cobra.Command, args []string) error {
 		}
 
 		// Set environment (non-fatal: session works without these)
-		_ = t.SetEnvironment(sessionID, "GT_ROLE", "crew")
-		_ = t.SetEnvironment(sessionID, "GT_RIG", r.Name)
-		_ = t.SetEnvironment(sessionID, "GT_CREW", name)
-
-		// Set runtime config dir for account selection (non-fatal)
-		if runtimeConfig.Session != nil && runtimeConfig.Session.ConfigDirEnv != "" && claudeConfigDir != "" {
-			_ = t.SetEnvironment(sessionID, runtimeConfig.Session.ConfigDirEnv, claudeConfigDir)
+		// Use centralized AgentEnv for consistency across all role startup paths
+		envVars := config.AgentEnv(config.AgentEnvConfig{
+			Role:             "crew",
+			Rig:              r.Name,
+			AgentName:        name,
+			TownRoot:         townRoot,
+			BeadsDir:         beads.ResolveBeadsDir(r.Path),
+			RuntimeConfigDir: claudeConfigDir,
+			BeadsNoDaemon:    true,
+		})
+		for k, v := range envVars {
+			_ = t.SetEnvironment(sessionID, k, v)
 		}
 
 		// Apply rig-based theming (non-fatal: theming failure doesn't affect operation)
@@ -162,11 +169,20 @@ func runCrewAt(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("getting pane ID: %w", err)
 		}
 
+		// Build startup beacon for predecessor discovery via /resume
+		// Use FormatStartupNudge instead of bare "gt prime" which confuses agents
+		// The SessionStart hook handles context injection (gt prime --hook)
+		address := fmt.Sprintf("%s/crew/%s", r.Name, name)
+		beacon := session.FormatStartupNudge(session.StartupNudgeConfig{
+			Recipient: address,
+			Sender:    "human",
+			Topic:     "start",
+		})
+
 		// Use respawn-pane to replace shell with runtime directly
 		// This gives cleaner lifecycle: runtime exits → session ends (no intermediate shell)
-		// Pass "gt prime" as initial prompt if supported
 		// Export GT_ROLE and BD_ACTOR since tmux SetEnvironment only affects new panes
-		startupCmd, err := config.BuildCrewStartupCommandWithAgentOverride(r.Name, name, r.Path, "gt prime", crewAgentOverride)
+		startupCmd, err := config.BuildCrewStartupCommandWithAgentOverride(r.Name, name, r.Path, beacon, crewAgentOverride)
 		if err != nil {
 			return fmt.Errorf("building startup command: %w", err)
 		}
@@ -198,10 +214,18 @@ func runCrewAt(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("getting pane ID: %w", err)
 			}
 
+			// Build startup beacon for predecessor discovery via /resume
+			// Use FormatStartupNudge instead of bare "gt prime" which confuses agents
+			address := fmt.Sprintf("%s/crew/%s", r.Name, name)
+			beacon := session.FormatStartupNudge(session.StartupNudgeConfig{
+				Recipient: address,
+				Sender:    "human",
+				Topic:     "restart",
+			})
+
 			// Use respawn-pane to replace shell with runtime directly
-			// Pass "gt prime" as initial prompt if supported
 			// Export GT_ROLE and BD_ACTOR since tmux SetEnvironment only affects new panes
-			startupCmd, err := config.BuildCrewStartupCommandWithAgentOverride(r.Name, name, r.Path, "gt prime", crewAgentOverride)
+			startupCmd, err := config.BuildCrewStartupCommandWithAgentOverride(r.Name, name, r.Path, beacon, crewAgentOverride)
 			if err != nil {
 				return fmt.Errorf("building startup command: %w", err)
 			}
@@ -218,13 +242,19 @@ func runCrewAt(cmd *cobra.Command, args []string) error {
 	// Check if we're already in the target session
 	if isInTmuxSession(sessionID) {
 		// We're in the session at a shell prompt - just start the agent directly
-		// Pass "gt prime" as initial prompt so it loads context immediately
+		// Build startup beacon for predecessor discovery via /resume
+		address := fmt.Sprintf("%s/crew/%s", r.Name, name)
+		beacon := session.FormatStartupNudge(session.StartupNudgeConfig{
+			Recipient: address,
+			Sender:    "human",
+			Topic:     "start",
+		})
 		agentCfg, _, err := config.ResolveAgentConfigWithOverride(townRoot, r.Path, crewAgentOverride)
 		if err != nil {
 			return fmt.Errorf("resolving agent: %w", err)
 		}
 		fmt.Printf("Starting %s in current session...\n", agentCfg.Command)
-		return execAgent(agentCfg, "gt prime")
+		return execAgent(agentCfg, beacon)
 	}
 
 	// If inside tmux (but different session), don't switch - just inform user
