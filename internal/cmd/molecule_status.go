@@ -451,13 +451,14 @@ func runMoleculeStatus(cmd *cobra.Command, args []string) error {
 }
 
 // buildAgentIdentity constructs the agent identity string from role context.
-// Format matches session.AgentIdentity.Address() for consistency.
+// Town-level agents (mayor, deacon) use trailing slash to match the format
+// used when setting assignee on hooked beads (see resolveSelfTarget in sling.go).
 func buildAgentIdentity(ctx RoleContext) string {
 	switch ctx.Role {
 	case RoleMayor:
-		return "mayor"
+		return "mayor/"
 	case RoleDeacon:
-		return "deacon"
+		return "deacon/"
 	case RoleWitness:
 		return ctx.Rig + "/witness"
 	case RoleRefinery:
@@ -876,8 +877,10 @@ func getGitRootForMolStatus() (string, error) {
 // isTownLevelRole returns true if the agent ID is a town-level role.
 // Town-level roles (Mayor, Deacon) operate from the town root and may have
 // pinned beads in any rig's beads directory.
+// Accepts both "mayor" and "mayor/" formats for compatibility.
 func isTownLevelRole(agentID string) bool {
-	return agentID == "mayor" || agentID == "deacon"
+	return agentID == "mayor" || agentID == "mayor/" ||
+		agentID == "deacon" || agentID == "deacon/"
 }
 
 // extractMailSender extracts the sender from mail bead labels.
