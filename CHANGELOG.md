@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.4] - 2026-01-10
 
-Priming subsystem overhaul and Zero File Coordination (ZFC) improvements.
+Priming subsystem overhaul and Zero Framework Cognition (ZFC) improvements.
 
 ### Added
 
@@ -31,7 +31,7 @@ Priming subsystem overhaul and Zero File Coordination (ZFC) improvements.
 
 ### Fixed
 
-#### Zero File Coordination (ZFC)
+#### Zero Framework Cognition (ZFC)
 - **Query tmux directly** - Remove marker TTL, query tmux for agent state
 - **Remove PID-based detection** - Agent liveness from tmux, not PIDs
 - **Agent-controlled thresholds** - Stuck detection moved to agent config
