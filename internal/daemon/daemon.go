@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/steveyegge/gastown/internal/config"
 	"github.com/steveyegge/gastown/internal/constants"
 	"github.com/steveyegge/gastown/internal/deacon"
+	"github.com/steveyegge/gastown/internal/events"
 	"github.com/steveyegge/gastown/internal/feed"
 	"github.com/steveyegge/gastown/internal/polecat"
 	"github.com/steveyegge/gastown/internal/refinery"
@@ -41,7 +43,23 @@ type Daemon struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	curator *feed.Curator
+
+	// Mass death detection: track recent session deaths
+	deathsMu     sync.Mutex
+	recentDeaths []sessionDeath
 }
+
+// sessionDeath records a detected session death for mass death analysis.
+type sessionDeath struct {
+	sessionName string
+	timestamp   time.Time
+}
+
+// Mass death detection parameters
+const (
+	massDeathWindow    = 30 * time.Second // Time window to detect mass death
+	massDeathThreshold = 3                // Number of deaths to trigger alert
+)
 
 // New creates a new daemon instance.
 func New(config *Config) (*Daemon, error) {
@@ -378,7 +396,7 @@ func (d *Daemon) ensureWitnessRunning(rigName string) {
 	}
 
 	// Manager.Start() handles: zombie detection, session creation, env vars, theming,
-	// WaitForClaudeReady, and crucially - startup/propulsion nudges (GUPP).
+	// startup readiness waits, and crucially - startup/propulsion nudges (GUPP).
 	// It returns ErrAlreadyRunning if Claude is already running in tmux.
 	r := &rig.Rig{
 		Name: rigName,
@@ -386,7 +404,7 @@ func (d *Daemon) ensureWitnessRunning(rigName string) {
 	}
 	mgr := witness.NewManager(r)
 
-	if err := mgr.Start(false); err != nil {
+	if err := mgr.Start(false, "", nil); err != nil {
 		if err == witness.ErrAlreadyRunning {
 			// Already running - nothing to do
 			return
@@ -735,6 +753,9 @@ func (d *Daemon) checkPolecatHealth(rigName, polecatName string) {
 	d.logger.Printf("CRASH DETECTED: polecat %s/%s has hook_bead=%s but session %s is dead",
 		rigName, polecatName, info.HookBead, sessionName)
 
+	// Track this death for mass death detection
+	d.recordSessionDeath(sessionName)
+
 	// Auto-restart the polecat
 	if err := d.restartPolecatSession(rigName, polecatName, sessionName); err != nil {
 		d.logger.Printf("Error restarting polecat %s/%s: %v", rigName, polecatName, err)
@@ -743,6 +764,56 @@ func (d *Daemon) checkPolecatHealth(rigName, polecatName string) {
 	} else {
 		d.logger.Printf("Successfully restarted crashed polecat %s/%s", rigName, polecatName)
 	}
+}
+
+// recordSessionDeath records a session death and checks for mass death pattern.
+func (d *Daemon) recordSessionDeath(sessionName string) {
+	d.deathsMu.Lock()
+	defer d.deathsMu.Unlock()
+
+	now := time.Now()
+
+	// Add this death
+	d.recentDeaths = append(d.recentDeaths, sessionDeath{
+		sessionName: sessionName,
+		timestamp:   now,
+	})
+
+	// Prune deaths outside the window
+	cutoff := now.Add(-massDeathWindow)
+	var recent []sessionDeath
+	for _, death := range d.recentDeaths {
+		if death.timestamp.After(cutoff) {
+			recent = append(recent, death)
+		}
+	}
+	d.recentDeaths = recent
+
+	// Check for mass death
+	if len(d.recentDeaths) >= massDeathThreshold {
+		d.emitMassDeathEvent()
+	}
+}
+
+// emitMassDeathEvent logs a mass death event when multiple sessions die in a short window.
+func (d *Daemon) emitMassDeathEvent() {
+	// Collect session names
+	var sessions []string
+	for _, death := range d.recentDeaths {
+		sessions = append(sessions, death.sessionName)
+	}
+
+	count := len(sessions)
+	window := massDeathWindow.String()
+
+	d.logger.Printf("MASS DEATH DETECTED: %d sessions died in %s: %v", count, window, sessions)
+
+	// Emit feed event
+	_ = events.LogFeed(events.TypeMassDeath, "daemon",
+		events.MassDeathPayload(count, window, sessions, ""))
+
+	// Clear the deaths to avoid repeated alerts
+	d.recentDeaths = nil
 }
 
 // restartPolecatSession restarts a crashed polecat session.
@@ -776,17 +847,21 @@ func (d *Daemon) restartPolecatSession(rigName, polecatName, sessionName string)
 	}
 
 	// Set environment variables
-	_ = d.tmux.SetEnvironment(sessionName, "GT_ROLE", "polecat")
-	_ = d.tmux.SetEnvironment(sessionName, "GT_RIG", rigName)
-	_ = d.tmux.SetEnvironment(sessionName, "GT_POLECAT", polecatName)
+	// Use centralized AgentEnvSimple for consistency across all role startup paths
+	envVars := config.AgentEnvSimple("polecat", rigName, polecatName)
 
-	bdActor := fmt.Sprintf("%s/polecats/%s", rigName, polecatName)
-	_ = d.tmux.SetEnvironment(sessionName, "BD_ACTOR", bdActor)
+	// Add polecat-specific beads configuration
+	// Use ResolveBeadsDir to follow redirects for repos with tracked beads
+	rigPath := filepath.Join(d.config.TownRoot, rigName)
+	beadsDir := beads.ResolveBeadsDir(rigPath)
+	envVars["BEADS_DIR"] = beadsDir
+	envVars["BEADS_NO_DAEMON"] = "1"
+	envVars["BEADS_AGENT_NAME"] = fmt.Sprintf("%s/%s", rigName, polecatName)
 
-	beadsDir := filepath.Join(d.config.TownRoot, rigName, ".beads")
-	_ = d.tmux.SetEnvironment(sessionName, "BEADS_DIR", beadsDir)
-	_ = d.tmux.SetEnvironment(sessionName, "BEADS_NO_DAEMON", "1")
-	_ = d.tmux.SetEnvironment(sessionName, "BEADS_AGENT_NAME", fmt.Sprintf("%s/%s", rigName, polecatName))
+	// Set all env vars in tmux session (for debugging) and they'll also be exported to Claude
+	for k, v := range envVars {
+		_ = d.tmux.SetEnvironment(sessionName, k, v)
+	}
 
 	// Apply theme
 	theme := tmux.AssignTheme(rigName)
@@ -798,8 +873,7 @@ func (d *Daemon) restartPolecatSession(rigName, polecatName, sessionName string)
 
 	// Launch Claude with environment exported inline
 	// Pass rigPath so rig agent settings are honored (not town-level defaults)
-	rigPath := filepath.Join(d.config.TownRoot, rigName)
-	startCmd := config.BuildPolecatStartupCommand(rigName, polecatName, rigPath, "")
+	startCmd := config.BuildStartupCommand(envVars, rigPath, "")
 	if err := d.tmux.SendKeys(sessionName, startCmd); err != nil {
 		return fmt.Errorf("sending startup command: %w", err)
 	}
