@@ -252,10 +252,13 @@ This is a convenience command that automatically:
 - Sets the reply-to field to the original message
 - Prefixes the subject with "Re: " (if not already present)
 - Sends to the original sender
+- Appends local time (HH:MM TZ) for coordination
 
 Examples:
   gt mail reply msg-abc123 -m "Thanks, working on it now"
-  gt mail reply msg-abc123 -s "Custom subject" -m "Reply body"`,
+  gt mail reply msg-abc123 -s "Custom subject" -m "Reply body"
+
+Your local time will be appended to the reply for timezone coordination.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runMailReply,
 }
@@ -1300,12 +1303,20 @@ func runMailReply(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Build reply body with local timestamp
+	body := mailReplyMessage
+	if body != "" {
+		// Append local time (HH:MM TZ) for coordination
+		timestamp := formatLocalTimestamp()
+		body = fmt.Sprintf("%s\n\n%s", body, style.Dim.Render(timestamp))
+	}
+
 	// Create reply message
 	reply := &mail.Message{
 		From:     from,
 		To:       original.From, // Reply to sender
 		Subject:  subject,
-		Body:     mailReplyMessage,
+		Body:     body,
 		Type:     mail.TypeReply,
 		Priority: mail.PriorityNormal,
 		ReplyTo:  msgID,
@@ -1336,6 +1347,18 @@ func generateThreadID() string {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b) // crypto/rand.Read only fails on broken system
 	return "thread-" + hex.EncodeToString(b)
+}
+
+// formatLocalTimestamp returns the local time in "HH:MM TZ" format.
+// The timezone abbreviation is derived from the local timezone.
+// Examples: "14:32 PST", "09:15 UTC", "22:45 EST"
+func formatLocalTimestamp() string {
+	now := time.Now()
+	// Get local timezone name (ignoring offset, we use the abbreviation)
+	tzName, _ := now.Zone()
+	// Format time as HH:MM
+	timeStr := now.Format("15:04")
+	return fmt.Sprintf("%s %s", timeStr, tzName)
 }
 
 // runMailClaim claims the oldest unclaimed message from a work queue.
