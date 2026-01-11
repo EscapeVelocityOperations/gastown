@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-01-11
+
 ### Added
 - **`gt mail mark-read`** - Mark messages as read without opening them (desire path)
 - **`gt down --polecats`** - Shut down polecats without affecting other components
