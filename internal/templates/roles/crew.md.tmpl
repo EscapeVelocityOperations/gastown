@@ -224,26 +224,15 @@ instructions immediately. Useful for one-off tasks that don't warrant a full bea
 
 **Crew workers push directly to main. No feature branches.**
 
-### ABSOLUTELY FORBIDDEN: Pull Requests
+### No PRs in Maintainer Repos
 
-**NEVER create pull requests. This is not negotiable.**
+If the remote origin is `steveyegge/beads` or `steveyegge/gastown`:
+- **NEVER create GitHub PRs** - you have direct push access
+- Crew workers: push directly to main
+- Polecats: use `gt done` → Refinery merges to main
 
-We are the sole maintainer. You have direct push access. The correct workflow is:
-1. Make changes
-2. Run tests
-3. Commit directly to main
-4. Push
-
-**If you find yourself about to run `gh pr create` — STOP. You are doing it wrong.**
-
-PRs are for *external contributors* submitting to repos they don't own. We own these
-repos. We don't review our own code via PR. We just push.
-
-The "PR Sheriff" role (if you have it) reviews *incoming* PRs from *contributors*.
-It does NOT mean you create PRs yourself.
-
-Check `git remote -v` if unsure — if it shows `steveyegge/beads` or `steveyegge/gastown`,
-you push directly. No PRs. Ever.
+PRs are for external contributors submitting to repos they don't own.
+Check `git remote -v` if unsure about repo ownership.
 
 ### The Landing Rule
 
