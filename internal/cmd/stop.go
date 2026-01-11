@@ -23,15 +23,19 @@ var (
 )
 
 var stopCmd = &cobra.Command{
-	Use:     "stop",
-	GroupID: GroupServices,
-	Short:   "Emergency stop for sessions",
-	Long: `Emergency stop command for Gas Town sessions.
+	Use:        "stop",
+	GroupID:    GroupServices,
+	Short:      "Emergency stop for sessions (deprecated: use 'gt down --polecats')",
+	Deprecated: "use 'gt down --polecats' instead",
+	Long: `DEPRECATED: This command is deprecated. Use 'gt down --polecats' instead.
+
+Emergency stop command for Gas Town sessions.
 
 Stops all running polecat sessions across rigs. Use for emergency shutdown
 when you need to halt all agent activity immediately.
 
 Examples:
+  gt down --polecats         # Stop all polecats (preferred)
   gt stop --all              # Kill ALL sessions across all rigs
   gt stop --rig wyvern       # Kill all sessions in the wyvern rig
   gt stop --all --graceful   # Try graceful shutdown first`,
@@ -55,6 +59,10 @@ type StopResult struct {
 }
 
 func runStop(cmd *cobra.Command, args []string) error {
+	// Print deprecation warning
+	fmt.Printf("%s 'gt stop' is deprecated. Use 'gt down --polecats' instead.\n\n",
+		style.Warning.Render("Warning:"))
+
 	if !stopAll && stopRig == "" {
 		return fmt.Errorf("must specify --all or --rig <name>")
 	}

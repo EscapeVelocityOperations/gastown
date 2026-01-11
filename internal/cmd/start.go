@@ -66,11 +66,15 @@ To stop Gas Town, use 'gt shutdown'.`,
 var shutdownCmd = &cobra.Command{
 	Use:     "shutdown",
 	GroupID: GroupServices,
-	Short:   "Shutdown Gas Town",
+	Short:   "Shutdown Gas Town with cleanup",
 	Long: `Shutdown Gas Town by stopping agents and cleaning up polecats.
 
-By default, preserves crew sessions (your persistent workspaces).
-Prompts for confirmation before stopping.
+This is the "done for the day" command - it stops everything AND removes
+polecat worktrees/branches. For a reversible pause, use 'gt down' instead.
+
+Comparison:
+  gt down      - Pause (stop processes, keep worktrees) - reversible
+  gt shutdown  - Done (stop + cleanup worktrees) - permanent cleanup
 
 After killing sessions, polecats are cleaned up:
   - Worktrees are removed
@@ -78,9 +82,9 @@ After killing sessions, polecats are cleaned up:
   - Polecats with uncommitted work are SKIPPED (protected)
 
 Shutdown levels (progressively more aggressive):
-  (default)       - Stop infrastructure (Mayor, Deacon, Witnesses, Refineries, Polecats)
+  (default)       - Stop infrastructure + polecats + cleanup
   --all           - Also stop crew sessions
-  --polecats-only - Only stop polecats (leaves everything else running)
+  --polecats-only - Only stop polecats (leaves infrastructure running)
 
 Use --force or --yes to skip confirmation prompt.
 Use --graceful to allow agents time to save state before killing.

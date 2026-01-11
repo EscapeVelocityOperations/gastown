@@ -12,8 +12,12 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/spf13/cobra"
 	"github.com/steveyegge/gastown/internal/beads"
+	"github.com/steveyegge/gastown/internal/config"
 	"github.com/steveyegge/gastown/internal/daemon"
 	"github.com/steveyegge/gastown/internal/events"
+	"github.com/steveyegge/gastown/internal/git"
+	"github.com/steveyegge/gastown/internal/polecat"
+	"github.com/steveyegge/gastown/internal/rig"
 	"github.com/steveyegge/gastown/internal/session"
 	"github.com/steveyegge/gastown/internal/style"
 	"github.com/steveyegge/gastown/internal/tmux"
@@ -29,10 +33,15 @@ var downCmd = &cobra.Command{
 	Use:     "down",
 	GroupID: GroupServices,
 	Short:   "Stop all Gas Town services",
-	Long: `Stop all Gas Town long-lived services.
+	Long: `Stop Gas Town services (reversible pause).
 
-This gracefully shuts down all infrastructure agents:
+Shutdown levels (progressively more aggressive):
+  gt down                    Stop infrastructure (default)
+  gt down --polecats         Also stop all polecat sessions
+  gt down --all              Also stop bd daemons/activity
+  gt down --nuke             Also kill the tmux server (DESTRUCTIVE)
 
+Infrastructure agents stopped:
   • Refineries - Per-rig work processors
   • Witnesses  - Per-rig polecat managers
   • Mayor      - Global work coordinator
@@ -40,28 +49,29 @@ This gracefully shuts down all infrastructure agents:
   • Deacon     - Health orchestrator
   • Daemon     - Go background process
 
-With --all, also stops resurrection layer (bd daemon/activity) and verifies
-shutdown. Polecats are NOT stopped - use 'gt swarm stop' for that.
+This is a "pause" operation - use 'gt start' to bring everything back up.
+For permanent cleanup (removing worktrees), use 'gt shutdown' instead.
 
-Flags:
-  --all      Stop bd daemons/activity, verify complete shutdown
-  --nuke     Kill entire tmux server (DESTRUCTIVE!)
-  --dry-run  Preview what would be stopped
-  --force    Skip graceful shutdown, use SIGKILL`,
+Use cases:
+  • Taking a break (stop token consumption)
+  • Clean shutdown before system maintenance
+  • Resetting the town to a clean state`,
 	RunE: runDown,
 }
 
 var (
-	downQuiet  bool
-	downForce  bool
-	downAll    bool
-	downNuke   bool
-	downDryRun bool
+	downQuiet    bool
+	downForce    bool
+	downAll      bool
+	downNuke     bool
+	downDryRun   bool
+	downPolecats bool
 )
 
 func init() {
 	downCmd.Flags().BoolVarP(&downQuiet, "quiet", "q", false, "Only show errors")
 	downCmd.Flags().BoolVarP(&downForce, "force", "f", false, "Force kill without graceful shutdown")
+	downCmd.Flags().BoolVarP(&downPolecats, "polecats", "p", false, "Also stop all polecat sessions")
 	downCmd.Flags().BoolVarP(&downAll, "all", "a", false, "Stop bd daemons/activity and verify shutdown")
 	downCmd.Flags().BoolVar(&downNuke, "nuke", false, "Kill entire tmux server (DESTRUCTIVE - kills non-GT sessions!)")
 	downCmd.Flags().BoolVar(&downDryRun, "dry-run", false, "Preview what would be stopped without taking action")
@@ -94,6 +104,32 @@ func runDown(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
+	rigs := discoverRigs(townRoot)
+
+	// Phase 0.5: Stop polecats if --polecats
+	if downPolecats {
+		if downDryRun {
+			fmt.Println("Would stop polecats...")
+		} else {
+			fmt.Println("Stopping polecats...")
+		}
+		polecatsStopped := stopAllPolecats(t, townRoot, rigs, downForce, downDryRun)
+		if downDryRun {
+			if polecatsStopped > 0 {
+				printDownStatus("Polecats", true, fmt.Sprintf("%d would stop", polecatsStopped))
+			} else {
+				printDownStatus("Polecats", true, "none running")
+			}
+		} else {
+			if polecatsStopped > 0 {
+				printDownStatus("Polecats", true, fmt.Sprintf("%d stopped", polecatsStopped))
+			} else {
+				printDownStatus("Polecats", true, "none running")
+			}
+		}
+		fmt.Println()
+	}
+
 	// Phase 1: Stop bd resurrection layer (--all only)
 	if downAll {
 		daemonsKilled, activityKilled, err := beads.StopAllBdProcesses(downDryRun, downForce)
@@ -121,8 +157,6 @@ func runDown(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
-
-	rigs := discoverRigs(townRoot)
 
 	// Phase 2a: Stop refineries
 	for _, rigName := range rigs {
@@ -261,6 +295,9 @@ func runDown(cmd *cobra.Command, args []string) error {
 			stoppedServices = append(stoppedServices, fmt.Sprintf("%s/refinery", rigName))
 			stoppedServices = append(stoppedServices, fmt.Sprintf("%s/witness", rigName))
 		}
+		if downPolecats {
+			stoppedServices = append(stoppedServices, "polecats")
+		}
 		if downAll {
 			stoppedServices = append(stoppedServices, "bd-processes")
 		}
@@ -274,6 +311,52 @@ func runDown(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// stopAllPolecats stops all polecat sessions across all rigs.
+// Returns the number of polecats stopped (or would be stopped in dry-run).
+func stopAllPolecats(t *tmux.Tmux, townRoot string, rigNames []string, force bool, dryRun bool) int {
+	stopped := 0
+
+	// Load rigs config
+	rigsConfigPath := filepath.Join(townRoot, "mayor", "rigs.json")
+	rigsConfig, err := config.LoadRigsConfig(rigsConfigPath)
+	if err != nil {
+		rigsConfig = &config.RigsConfig{Rigs: make(map[string]config.RigEntry)}
+	}
+
+	g := git.NewGit(townRoot)
+	rigMgr := rig.NewManager(townRoot, rigsConfig, g)
+
+	for _, rigName := range rigNames {
+		r, err := rigMgr.GetRig(rigName)
+		if err != nil {
+			continue
+		}
+
+		polecatMgr := polecat.NewSessionManager(t, r)
+		infos, err := polecatMgr.List()
+		if err != nil {
+			continue
+		}
+
+		for _, info := range infos {
+			if dryRun {
+				stopped++
+				fmt.Printf("  %s [%s] %s would stop\n", style.Dim.Render("○"), rigName, info.Polecat)
+				continue
+			}
+			err := polecatMgr.Stop(info.Polecat, force)
+			if err == nil {
+				stopped++
+				fmt.Printf("  %s [%s] %s stopped\n", style.SuccessPrefix, rigName, info.Polecat)
+			} else {
+				fmt.Printf("  %s [%s] %s: %s\n", style.ErrorPrefix, rigName, info.Polecat, err.Error())
+			}
+		}
+	}
+
+	return stopped
 }
 
 func printDownStatus(name string, ok bool, detail string) {
